@@ -39,4 +39,4 @@
 
 如果你觉得该软件对你有帮助，想支持一下作者，可扫码向作者进行捐赠，如果觉得没什么用，也可以向作者提出你的意见： https://github.com/Zhou-zhi-peng/NetDebugger/issues/new
 
-![支持作者](https://github.com/Zhou-zhi-peng/NetDebugger/blob/main/20201019185347.png?raw=true 400x300)
+![支持作者](https://github.com/Zhou-zhi-peng/NetDebugger/blob/main/20201019185347.png?raw=true)
