@@ -951,7 +951,7 @@ WebSocketClient::PDTable WebSocketClient::EnumProperties()
 	auto self = GetSharedPtr();
 	auto pd = std::make_shared<StaticProperty>(
 		L"Host",
-		L"DEVICE.CLASS.WEBSOCKETCLIENT.PROP.REMOTEHOST",
+		L"DEVICE.WEBSOCKETCLIENT.PROP.REMOTEHOST",
 		L"ws://localhost:8080/test",
 		IDevice::PropertyChangeFlags::CanChangeBeforeStart
 		);
