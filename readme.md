@@ -17,6 +17,13 @@
 + “项目配置-> C++ -> 附加包含目录” 添加boost 1.68.0 包含目录
 + “项目配置-> 链接器 -> 附加库目录” 添加boost 1.68.0 库输出目录
 
+## 屏幕截图
+![支持作者](https://github.com/Zhou-zhi-peng/NetDebugger/blob/main/Screen/191951.png?raw=true)
+
+![支持作者](https://github.com/Zhou-zhi-peng/NetDebugger/blob/main/Screen/192119.png?raw=true)
+
+![支持作者](https://github.com/Zhou-zhi-peng/NetDebugger/blob/main/Screen/192618.png?raw=true)
+
 ## 问答
 
 **为什么使用 MFC？**  
@@ -39,4 +46,4 @@
 
 如果你觉得该软件对你有帮助，想支持一下作者，可扫码向作者进行捐赠，如果觉得没什么用，也可以向作者提出你的意见： https://github.com/Zhou-zhi-peng/NetDebugger/issues/new
 
-![支持作者](https://github.com/Zhou-zhi-peng/NetDebugger/blob/main/20201019185347.png?raw=true)
+![支持作者](https://github.com/Zhou-zhi-peng/NetDebugger/blob/main/85347.png?raw=true)
