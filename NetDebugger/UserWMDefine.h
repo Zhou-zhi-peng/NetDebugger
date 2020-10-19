@@ -1,0 +1,5 @@
+#pragma once
+constexpr UINT kWM_APP_USER = WM_USER + 20;
+constexpr UINT kWM_UI_THREAD_TASK = kWM_APP_USER + 1;
+constexpr UINT kWM_CDEVICE_PROPERTY_CHANGED = kWM_APP_USER + 2;
+constexpr UINT kWM_SELECT_BUTTON_CHANGED = kWM_APP_USER + 3;
