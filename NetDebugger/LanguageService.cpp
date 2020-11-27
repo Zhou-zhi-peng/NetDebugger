@@ -73,11 +73,22 @@ LanguageService::~LanguageService()
 
 static CString GetUserDefaultLID()
 {
+	/// FIX:XP兼容性，由于XP系统中不存在 LCIDToLocaleName 函数，如果直接引用将引发无法找到函数入口问题，导到程序无法运行。
+	/// 解决方案：采用手动加载DLL的方式引用函数，如果不存在则返回默认的语言ID（zh-CN）
+	/// 产生影响：修复后，XP系统中将无法根据系统语言进行初始化语言
+	auto m = LoadLibrary(L"Kernel32");
+	int (WINAPI *pfnLCIDToLocaleName)(LCID, LPWSTR, int, DWORD) = (int(WINAPI*)(LCID, LPWSTR, int, DWORD))GetProcAddress(m, "LCIDToLocaleName");
 	TCHAR localName[255] = { 0 };
-	//ResolveLocaleName(L"ja", localName, 255);
-	//SetThreadLocale(LocaleNameToLCID(localName, 0));
-	auto cid = GetThreadLocale();
-	LCIDToLocaleName(cid, localName, 255, 0);
+	if (pfnLCIDToLocaleName != nullptr)
+	{
+		auto cid = GetThreadLocale();
+		pfnLCIDToLocaleName(cid, localName, 255, 0); 
+	}
+	else
+	{
+		lstrcpyn(localName, L"zh-CN", 255);
+	}
+	FreeLibrary(m);
 	return localName;
 }
 
