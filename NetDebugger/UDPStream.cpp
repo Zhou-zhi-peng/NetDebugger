@@ -197,6 +197,10 @@ void UDPBasic::Start(void)
 					if (ec)
 						break;
 
+					client->m_Socket.connect(iter->endpoint(), ec);
+					if (ec)
+						break;
+
 					if (!ec)
 						break;
 					boost::system::error_code ecClose;
