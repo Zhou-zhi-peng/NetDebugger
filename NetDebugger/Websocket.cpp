@@ -130,7 +130,7 @@ public:
 
 	void setRandomMaskKey()
 	{
-		std::default_random_engine rg(static_cast<size_t>(std::time(nullptr)));
+		std::default_random_engine rg(static_cast<unsigned int>(std::time(nullptr)));
 		std::uniform_int_distribution<int> n(1, 255);
 		masking_key[0] = static_cast<uint8_t>(n(rg));
 		masking_key[1] = static_cast<uint8_t>(n(rg));
@@ -202,7 +202,7 @@ private:
 		size_t maskKeyLen = mask ? 4 : 0;
 		packet->resize(static_cast<size_t>(offset + payloadLength + maskKeyLen));
 		payload = packet->data() + offset;
-		headerSize = offset + maskKeyLen;
+		headerSize = static_cast<unsigned int>(offset + maskKeyLen);
 		boost::asio::async_read(
 			sock,
 			boost::asio::buffer(packet->data() + offset, packet->size() - offset),
@@ -361,7 +361,7 @@ static std::string GetRandomString()
 		'w', 'x', 'y', 'z', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9'
 	};
 
-	std::default_random_engine rg(static_cast<size_t>(std::time(nullptr)));
+	std::default_random_engine rg(static_cast<unsigned int>(std::time(nullptr)));
 	std::uniform_int_distribution<int> n(0, sizeof(chars_table) - 1);
 	char buffer[16];
 	for (int i = 0; i < sizeof(buffer); ++i)

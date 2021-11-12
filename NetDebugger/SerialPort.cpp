@@ -480,11 +480,14 @@ void SerialPort::CloseSerialPort(bool notify, const boost::system::error_code& e
 
 
 class SerialPortSwitch;
+
+template <class TDevice>
 class SerialPortStream :
 	public IAsyncChannel,
-	public std::enable_shared_from_this<SerialPortStream>
+	public std::enable_shared_from_this<SerialPortStream<TDevice>>
 {
 	friend class SerialPortSwitch;
+	friend class SerialPortToTCPClient;
 public:
 	SerialPortStream() :
 		m_PortName(),
@@ -648,7 +651,7 @@ public:
 	}
 
 public:
-	void SetTarget(std::shared_ptr<SerialPortSwitch> device, std::shared_ptr<SerialPortStream> stream)
+	void SetTarget(std::shared_ptr<TDevice> device, std::shared_ptr<IAsyncChannel> stream)
 	{
 		m_Device = device;
 		m_Target = stream;
@@ -875,7 +878,28 @@ private:
 		CloseSerialPort(true, ecClose);
 	}
 
-	void CloseSerialPort(bool notify, const boost::system::error_code& ecClose);
+	void CloseSerialPort(bool notify, const boost::system::error_code& ecClose)
+	{
+		bool state = true;
+		if (m_Opened.compare_exchange_weak(state, false))
+		{
+			boost::system::error_code ec;
+			if (m_SerialPort.is_open())
+			{
+				m_SerialPort.cancel(ec);
+				m_SerialPort.close(ec);
+			}
+			if (notify)
+			{
+				auto dev = m_Device.lock();
+				if (dev != nullptr)
+				{
+					auto message = StringToWString(ecClose.message());
+					dev->ChannelDisconnectedNotify(message);
+				}
+			}
+		}
+	}
 private:
 	std::wstring m_PortName;
 	boost::asio::serial_port::baud_rate m_BaudRate;
@@ -887,19 +911,19 @@ private:
 	std::atomic_flag m_Writing;
 	std::atomic<bool> m_Opened;
 	boost::asio::serial_port m_SerialPort;
-	std::weak_ptr<SerialPortSwitch> m_Device;
-	std::weak_ptr<SerialPortStream> m_Target;
+	std::weak_ptr<TDevice> m_Device;
+	std::weak_ptr<IAsyncChannel> m_Target;
 };
 
 class SerialPortSwitch :
 	public CommunicationDevice,
 	public std::enable_shared_from_this<SerialPortSwitch>
 {
-	friend class SerialPortStream;
+	friend class SerialPortStream<SerialPortSwitch>;
 public:
 	SerialPortSwitch():
-		m_SerialPortA(std::make_shared<SerialPortStream>()),
-		m_SerialPortB(std::make_shared<SerialPortStream>())
+		m_SerialPortA(std::make_shared<SerialPortStream<SerialPortSwitch>>()),
+		m_SerialPortB(std::make_shared<SerialPortStream<SerialPortSwitch>>())
 	{
 	}
 	virtual ~SerialPortSwitch()
@@ -951,7 +975,7 @@ public:
 		ec = m_SerialPortA->Open();
 		if (ec)
 		{
-			StatusChanged(DeviceStatus::Disconnected, L"#1:" + StringToWString(ec.message()));
+			StatusChanged(DeviceStatus::Disconnected, L"SERIAL:" + StringToWString(ec.message()));
 			return;
 		}
 		std::wstring configName;
@@ -1001,7 +1025,7 @@ public:
 		}
 	}
 private:
-	void ChannelDisconnectedNotify(std::shared_ptr<SerialPortStream> stream,const std::wstring& message)
+	void ChannelDisconnectedNotify(const std::wstring& message)
 	{
 		boost::system::error_code ec;
 		m_SerialPortA->CloseSerialPort(false, ec);
@@ -1012,33 +1036,491 @@ private:
 		StatusChanged(DeviceStatus::Disconnected, message);
 	}
 private:
-	std::shared_ptr<SerialPortStream> m_SerialPortA;
-	std::shared_ptr<SerialPortStream> m_SerialPortB;
+	std::shared_ptr<SerialPortStream<SerialPortSwitch>> m_SerialPortA;
+	std::shared_ptr<SerialPortStream<SerialPortSwitch>> m_SerialPortB;
 };
 
-void SerialPortStream::CloseSerialPort(bool notify, const boost::system::error_code& ecClose)
+class SerialPortToTCPClient;
+class TcpForwardClientChannel :
+	public IAsyncChannel,
+	public std::enable_shared_from_this<TcpForwardClientChannel>
 {
-	bool state = true;
-	if (m_Opened.compare_exchange_weak(state, false))
+	friend SerialPortToTCPClient;
+public:
+	TcpForwardClientChannel() :
+		m_Device(),
+		m_Target(),
+		m_Socket(theApp.GetIOContext()),
+		m_Opened(false),
+		m_ChannelGroupName()
+	{
+	}
+	virtual ~TcpForwardClientChannel(void)
+	{
+		CloseChannel();
+	}
+public:
+	// 通过 IAsyncChannel 继承
+	virtual std::wstring Id(void) const override
+	{
+		if (sizeof(size_t) == sizeof(void*))
+			return std::to_wstring(reinterpret_cast<size_t>(this));
+		else
+			return std::to_wstring(reinterpret_cast<uint64_t>(this));
+	}
+	virtual std::wstring Description(void) const override
+	{
+		std::wstring result = m_ChannelGroupName;
+		boost::system::error_code ec;
+		auto local = m_Socket.remote_endpoint(ec);
+		if (ec)
+		{
+			result += L"none" + result;
+		}
+		else
+		{
+			result += L"local(";
+			result += StringToWString(local.address().to_string()) + L":" + std::to_wstring(local.port());
+			result += L")";
+		}
+
+		auto remote = m_Socket.remote_endpoint(ec);
+		if (ec)
+		{
+			result += L" <---> none";
+		}
+		else
+		{
+			result += L" <---> remote(";
+			result += StringToWString(remote.address().to_string()) + L":" + std::to_wstring(remote.port());
+			result += L")";
+		}
+		return result;
+	}
+	virtual std::wstring LocalEndPoint(void) const override
+	{
+		std::wstring result;
+		boost::system::error_code ec;
+		auto local = m_Socket.local_endpoint(ec);
+		if (ec)
+		{
+			result = L"none";
+		}
+		else
+		{
+			result = StringToWString(local.address().to_string()) + L"#" + std::to_wstring(local.port());
+		}
+		return result;
+	}
+	virtual std::wstring RemoteEndPoint(void) const override
+	{
+		std::wstring result;
+		boost::system::error_code ec;
+		auto local = m_Socket.remote_endpoint(ec);
+		if (ec)
+		{
+			result = L"none";
+		}
+		else
+		{
+			result = StringToWString(local.address().to_string()) + L"#" + std::to_wstring(local.port());
+		}
+		return result;
+	}
+	virtual void Read(void* buffer, size_t bufferSize, IoCompletionHandler handler) override
+	{
+		auto client = shared_from_this();
+		boost::asio::async_read(
+			m_Socket,
+			boost::asio::buffer(buffer, bufferSize),
+			[client, buffer, handler](const boost::system::error_code& ec, size_t bytestransfer)
+			{
+				if (!ec && bytestransfer > 0)
+				{
+					auto tsp = client->m_Target.lock();
+					if (tsp != nullptr)
+					{
+						tsp->Write(buffer, bytestransfer, [client, bytestransfer, handler](bool ok, size_t byteswrite)
+							{
+								if (handler != nullptr)
+									handler(true, bytestransfer);
+							});
+					}
+					else
+					{
+						if (handler != nullptr)
+							handler(true, bytestransfer);
+					}
+				}
+				else
+				{
+					if (handler != nullptr)
+						handler(false, bytestransfer);
+					if (ec != boost::system::errc::operation_canceled)
+						client->CloseChannel(ec);
+				}
+			}
+		);
+	}
+	virtual void Write(const void* buffer, size_t bufferSize, IoCompletionHandler handler) override
+	{
+		auto client = shared_from_this();
+		boost::asio::async_write(
+			m_Socket,
+			boost::asio::const_buffer(buffer, bufferSize),
+			[client, handler, this](const boost::system::error_code& ec, size_t bytestransfer)
+			{
+				if (handler != nullptr)
+					handler(!ec, bytestransfer);
+				if (ec)
+				{
+					if (ec != boost::system::errc::operation_canceled)
+						client->CloseChannel(ec);
+				}
+			}
+		);
+	}
+	virtual void ReadSome(void* buffer, size_t bufferSize, IoCompletionHandler handler) override
+	{
+		auto client = shared_from_this();
+		m_Socket.async_read_some(
+			boost::asio::buffer(buffer, bufferSize),
+			[client, buffer, handler](const boost::system::error_code& ec, size_t bytestransfer)
+			{
+				if (!ec && bytestransfer > 0)
+				{
+					auto tsp = client->m_Target.lock();
+					if (tsp != nullptr)
+					{
+						tsp->Write(buffer, bytestransfer, [client, bytestransfer, handler](bool ok, size_t byteswrite)
+							{
+								if (handler != nullptr)
+									handler(true, bytestransfer);
+							});
+					}
+					else
+					{
+						if (handler != nullptr)
+							handler(true, bytestransfer);
+					}
+				}
+				else
+				{
+					if (handler != nullptr)
+						handler(false, bytestransfer);
+					if (ec != boost::system::errc::operation_canceled)
+						client->CloseChannel(ec);
+				}
+			}
+		);
+	}
+	virtual void WriteSome(const void* buffer, size_t bufferSize, IoCompletionHandler handler) override
+	{
+		auto client = shared_from_this();
+		m_Socket.async_write_some(
+			boost::asio::const_buffer(buffer, bufferSize),
+			[client, handler](const boost::system::error_code& ec, size_t bytestransfer)
+			{
+				handler(!ec, bytestransfer);
+				if (ec)
+				{
+					if (ec != boost::system::errc::operation_canceled)
+						client->CloseChannel(ec);
+				}
+			}
+		);
+	}
+	virtual void Cancel(void) override
 	{
 		boost::system::error_code ec;
-		if (m_SerialPort.is_open())
+		m_Socket.cancel(ec);
+	}
+	virtual void Close(void) override
+	{
+		CloseChannel(boost::system::errc::make_error_code(boost::system::errc::connection_aborted));
+	}
+protected:
+	static std::wstring ProtocolToWstring(const boost::asio::ip::tcp::endpoint::protocol_type& protocol)
+	{
+		std::wstring result = L"TCP/IP";
+		if (protocol.family() == AF_INET)
+			result += L"V4";
+		if (protocol.family() == AF_INET6)
+			result += L"V6";
+		return result;
+	}
+
+	std::wstring GetProtocol()
+	{
+		boost::system::error_code ec;
+		auto local = m_Socket.local_endpoint(ec);
+		if (ec)
+			return StringToWString(ec.message());
+		else
+			return ProtocolToWstring(local.protocol());
+	}
+
+	void Connect(std::function<void(const boost::system::error_code ec)> handler)
+	{
+		bool state = false;
+		if (m_Opened.compare_exchange_weak(state, true))
 		{
-			m_SerialPort.cancel(ec);
-			m_SerialPort.close(ec);
+			auto channel = shared_from_this();
+			boost::system::error_code ec;
+			auto rslv = std::make_shared<boost::asio::ip::tcp::resolver>(m_Socket.get_io_context());
+			boost::asio::ip::tcp::resolver::query qry(WStringToString(m_ServerURL), std::to_string(m_RemotePort));
+			auto keepAlive = m_Keepalive;
+			rslv->async_resolve(qry, [rslv, channel, keepAlive, handler](const boost::system::error_code& ec, boost::asio::ip::tcp::resolver::iterator iter)
+				{
+					if (ec)
+					{
+						handler(ec);
+					}
+					else
+					{
+						boost::asio::async_connect(
+							channel->m_Socket,
+							iter,
+							[rslv, channel, keepAlive, handler](const boost::system::error_code& ec, boost::asio::ip::tcp::resolver::iterator iter)
+							{
+								if (ec)
+								{
+									channel->Close();
+								}
+								else
+								{
+									boost::system::error_code ecSet;
+									channel->m_Socket.set_option(boost::asio::socket_base::keep_alive(keepAlive), ecSet);
+								}
+								handler(ec);
+							});
+					}
+				});
 		}
-		if (notify)
+	}
+	CommunicationDevice::PDTable EnumProperties()
+	{
+		using StaticProperty = PropertyDescriptionHelper::StaticPropertyDescription;
+		CommunicationDevice::PDTable results;
+		auto self = shared_from_this();
+		auto pd = std::make_shared<StaticProperty>(
+			L"Host",
+			L"DEVICE.TCPCLIENT.PROP.HOST",
+			L"127.0.0.1",
+			IDevice::PropertyChangeFlags::CanChangeBeforeStart
+			);
+		pd->BindMethod(
+			[self]() { return self->m_ServerURL; },
+			[self](const std::wstring& value) { self->m_ServerURL = value; }
+		);
+		results.push_back(pd);
+
+		pd = std::make_shared<StaticProperty>(
+			L"RemotePort",
+			L"DEVICE.TCPCLIENT.PROP.REMOTEPORT",
+			uint16_t(0),
+			IDevice::PropertyChangeFlags::CanChangeBeforeStart
+			);
+		pd->BindMethod(
+			[self]() { return std::to_wstring(self->m_RemotePort); },
+			[self](const std::wstring& value) { self->m_RemotePort = static_cast<std::uint16_t>(std::wcstoul(value.c_str(), nullptr, 10)); }
+		);
+		results.push_back(pd);
+
+		pd = std::make_shared<StaticProperty>(
+			L"Keepalive",
+			L"DEVICE.TCPCLIENT.PROP.KEEPALIVE",
+			bool(false),
+			IDevice::PropertyChangeFlags::CanChangeBeforeStart
+			);
+		pd->BindMethod(
+			[self]() { return std::to_wstring(self->m_Keepalive ? 1 : 0); },
+			[self](const std::wstring& value) { self->m_Keepalive = value == L"1"; });
+		results.push_back(pd);
+
+		pd = std::make_shared<StaticProperty>(
+			L"Protocol",
+			L"DEVICE.TCPCLIENT.PROP.PROTOCOL",
+			L"",
+			IDevice::PropertyChangeFlags::Readonly
+			);
+		pd->BindMethod(
+			[self]() { return self->GetProtocol(); },
+			nullptr
+		);
+		results.push_back(pd);
+		return results;
+	}
+	void SetTarget(std::shared_ptr<SerialPortToTCPClient> device, std::shared_ptr<IAsyncChannel> stream)
+	{
+		m_Device = device;
+		m_Target = stream;
+	}
+
+	bool CloseChannel(void)
+	{
+		bool state = true;
+		if (m_Opened.compare_exchange_weak(state, false))
 		{
-			auto dev = m_Device.lock();
-			if (dev != nullptr)
+			boost::system::error_code ec;
+			m_Socket.cancel(ec);
+			m_Socket.shutdown(m_Socket.shutdown_both, ec);
+			m_Socket.close(ec);
+			return true;
+		}
+		return false;
+	}
+	void CloseChannel(const boost::system::error_code& ecClose);
+private:
+	std::weak_ptr<SerialPortToTCPClient> m_Device;
+	std::weak_ptr<IAsyncChannel> m_Target;
+	boost::asio::ip::tcp::socket m_Socket;
+	std::atomic<bool> m_Opened;
+	std::wstring m_ChannelGroupName;
+	std::wstring m_ServerURL;
+	std::uint16_t m_RemotePort;
+	bool m_Keepalive;
+};
+
+class SerialPortToTCPClient :
+	public CommunicationDevice,
+	public std::enable_shared_from_this<SerialPortToTCPClient>
+{
+	friend class SerialPortStream<SerialPortToTCPClient>;
+	friend class TcpForwardClientChannel;
+public:
+	SerialPortToTCPClient() :
+		m_SerialPort(std::make_shared<SerialPortStream<SerialPortToTCPClient>>()),
+		m_TCPClient(std::make_shared<TcpForwardClientChannel>())
+	{
+	}
+	virtual ~SerialPortToTCPClient()
+	{
+		m_SerialPort->Close();
+		m_TCPClient->Close();
+	}
+public:
+	// 通过 IDevice 继承
+	virtual bool IsSingleChannel(void) override
+	{
+		return false;
+	}
+
+	virtual bool IsServer(void) override
+	{
+		return false;
+	}
+
+	virtual PDTable EnumProperties() override
+	{
+		using PropertyGroup = PropertyDescriptionHelper::PropertyGroupDescription;
+
+		PDTable t;
+		auto pdA = std::make_shared<PropertyGroup>(
+			L"PortA",
+			L"DEVICE.SERIALPORTTOTCPCLIENT.PROP.PORT"
+			);
+
+		auto pdB = std::make_shared<PropertyGroup>(
+			L"PortB",
+			L"DEVICE.SERIALPORTTOTCPCLIENT.PROP.TCP"
+			);
+
+		pdA->AddChildRange(m_SerialPort->EnumProperties());
+		pdB->AddChildRange(m_TCPClient->EnumProperties());
+		t.push_back(pdA);
+		t.push_back(pdB);
+		return t;
+	}
+
+	virtual void Start(void) override
+	{
+		if (Started())
+			return;
+		boost::system::error_code ec;
+		auto dev = shared_from_this();
+		StatusChanged(DeviceStatus::Connecting, std::wstring());
+		ec = m_SerialPort->Open();
+		if (ec)
+		{
+			StatusChanged(DeviceStatus::Disconnected, L"SERIAL:" + StringToWString(ec.message()));
+			return;
+		}
+		std::wstring configName;
+		ec = m_SerialPort->ApplyConfig(configName);
+		if (ec)
+		{
+			StatusChanged(DeviceStatus::Disconnected, L"SERIAL:" + StringToWString(ec.message()) + L" : " + configName);
+			return;
+		}
+
+		auto client = m_TCPClient;
+		m_TCPClient->Connect([client,this](const boost::system::error_code& ec)
 			{
-				auto message = StringToWString(ecClose.message());
-				dev->ChannelDisconnectedNotify(shared_from_this(), message);
+				if (ec)
+				{
+					StatusChanged(DeviceStatus::Disconnected, StringToWString(ec.message()));
+					PropertyChanged();
+					ChannelConnected(m_TCPClient, StringToWString(ec.message()));
+				}
+				else
+				{
+					StatusChanged(DeviceStatus::Connected, StringToWString(ec.message()));
+					PropertyChanged();
+					ChannelConnected(m_TCPClient, StringToWString(ec.message()));
+					m_SerialPort->SetTarget(this->shared_from_this(),m_TCPClient);
+				}
 			}
+		);
+		m_SerialPort->SetTarget(dev, std::dynamic_pointer_cast<IAsyncChannel>(m_TCPClient));
+		m_TCPClient->SetTarget(dev, m_SerialPort);
+		StatusChanged(DeviceStatus::Connected, StringToWString(ec.message()));
+		ChannelConnected(m_SerialPort, StringToWString(ec.message()));
+		ChannelConnected(std::dynamic_pointer_cast<IAsyncChannel>(m_TCPClient), StringToWString(ec.message()));
+		PropertyChanged();
+	}
+
+	virtual void Stop(void) override
+	{
+		if (Started())
+		{
+			boost::system::error_code ec;
+			m_SerialPort->CloseSerialPort(false, ec);
+			m_TCPClient->Close();
+			ChannelDisconnected(m_SerialPort, std::wstring());
+			ChannelDisconnected(std::dynamic_pointer_cast<IAsyncChannel>(m_TCPClient), std::wstring());
+			PropertyChanged();
+			StatusChanged(DeviceStatus::Disconnected, std::wstring());
+		}
+	}
+private:
+	void ChannelDisconnectedNotify(const std::wstring& message)
+	{
+		boost::system::error_code ec;
+		m_SerialPort->CloseSerialPort(false, ec);
+		m_TCPClient->Close();
+		ChannelDisconnected(m_SerialPort, std::wstring());
+		ChannelDisconnected(std::dynamic_pointer_cast<IAsyncChannel>(m_TCPClient), std::wstring());
+		PropertyChanged();
+		StatusChanged(DeviceStatus::Disconnected, message);
+	}
+private:
+	std::shared_ptr<SerialPortStream<SerialPortToTCPClient>> m_SerialPort;
+	std::shared_ptr<TcpForwardClientChannel> m_TCPClient;
+};
+
+void TcpForwardClientChannel::CloseChannel(const boost::system::error_code& ecClose)
+{
+	if (CloseChannel())
+	{
+		auto dev = m_Device.lock();
+		if (dev != nullptr)
+		{
+			dev->ChannelDisconnectedNotify(StringToWString(ecClose.message()));
 		}
 	}
 }
 
-
 REGISTER_CLASS_TITLE(SerialPort, L"DEVICE.CLASS.SERIALPORT.TITLE");
 REGISTER_CLASS_TITLE(SerialPortSwitch, L"DEVICE.CLASS.SERIALPORTSWITCH.TITLE");
+REGISTER_CLASS_TITLE(SerialPortToTCPClient, L"DEVICE.CLASS.SERIALPORTTOTCPCLIENT.TITLE");
