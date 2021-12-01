@@ -39,8 +39,8 @@
 **不想编译BOOST库，如何直接使用？**  
 直接下载Bin目录中的EXE文件就可以直接使用。  
 如果报应用程序配置不正确，请安装VS2017 C++ 运行时库，也在Bin目录中可以直接下载。  
-软件下载地址：https://github.com/Zhou-zhi-peng/NetDebugger/blob/main/Bin/NetDebugger.exe?raw=true  
-运行时下载地址：https://github.com/Zhou-zhi-peng/NetDebugger/blob/main/Bin/VC_redist.x86.exe?raw=true  
+软件下载地址：https://github.com/Zhou-zhi-peng/NetDebugger/raw/main/Bin/NetDebugger64.exe 
+运行时下载地址：https://github.com/Zhou-zhi-peng/NetDebugger/raw/main/Bin/VC_redist.x86.exe
 
 ## 支持&捐赠
 
