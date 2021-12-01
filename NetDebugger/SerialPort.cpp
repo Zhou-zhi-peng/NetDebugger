@@ -367,12 +367,12 @@ std::wstring SerialPort::RemoteEndPoint(void) const
 	return m_PortName;
 }
 
-void SerialPort::Read(void* buffer, size_t bufferSize, IoCompletionHandler handler)
+void SerialPort::Read(OutputBuffer buffer, IoCompletionHandler handler)
 {
 	auto client = shared_from_this();
 	boost::asio::async_read(
 		m_SerialPort,
-		boost::asio::buffer(buffer, bufferSize),
+		boost::asio::buffer(buffer->data(), buffer->size()),
 		[client, handler](const boost::system::error_code& ec, size_t bytestransfer)
 	{
 		if (handler != nullptr)
@@ -384,7 +384,7 @@ void SerialPort::Read(void* buffer, size_t bufferSize, IoCompletionHandler handl
 	}
 	);
 }
-void SerialPort::Write(const void* buffer, size_t bufferSize, IoCompletionHandler handler)
+void SerialPort::Write(InputBuffer buffer, IoCompletionHandler handler)
 {
 	int count = 1024 * 8;
 	while (m_Writing.test_and_set())
@@ -400,7 +400,7 @@ void SerialPort::Write(const void* buffer, size_t bufferSize, IoCompletionHandle
 	auto client = shared_from_this();
 	boost::asio::async_write(
 		m_SerialPort,
-		boost::asio::const_buffer(buffer, bufferSize),
+		boost::asio::const_buffer(buffer.buffer, buffer.bufferSize),
 		[client, handler, this](const boost::system::error_code& ec, size_t bytestransfer)
 	{
 		m_Writing.clear();
@@ -412,11 +412,11 @@ void SerialPort::Write(const void* buffer, size_t bufferSize, IoCompletionHandle
 		}
 	});
 }
-void SerialPort::ReadSome(void* buffer, size_t bufferSize, IoCompletionHandler handler)
+void SerialPort::ReadSome(OutputBuffer buffer, IoCompletionHandler handler)
 {
 	auto client = shared_from_this();
 	m_SerialPort.async_read_some(
-		boost::asio::buffer(buffer, bufferSize),
+		boost::asio::buffer(buffer->data(), buffer->size()),
 		[client, handler](const boost::system::error_code& ec, size_t bytestransfer)
 	{
 		handler(!ec, bytestransfer);
@@ -427,11 +427,11 @@ void SerialPort::ReadSome(void* buffer, size_t bufferSize, IoCompletionHandler h
 		}
 	});
 }
-void SerialPort::WriteSome(const void* buffer, size_t bufferSize, IoCompletionHandler handler)
+void SerialPort::WriteSome(InputBuffer buffer, IoCompletionHandler handler)
 {
 	auto client = shared_from_this();
 	m_SerialPort.async_write_some(
-		boost::asio::const_buffer(buffer, bufferSize),
+		boost::asio::const_buffer(buffer.buffer, buffer.bufferSize),
 		[client, handler](const boost::system::error_code& ec, size_t bytestransfer)
 	{
 		handler(!ec, bytestransfer);
@@ -531,12 +531,12 @@ public:
 		return m_PortName;
 	}
 
-	virtual void Read(void * buffer, size_t bufferSize, IoCompletionHandler handler) override
+	virtual void Read(OutputBuffer buffer, IoCompletionHandler handler) override
 	{
 		auto client = shared_from_this();
 		boost::asio::async_read(
 			m_SerialPort,
-			boost::asio::buffer(buffer, bufferSize),
+			boost::asio::buffer(buffer->data(), buffer->size()),
 			[client, buffer, handler](const boost::system::error_code& ec, size_t bytestransfer)
 		{
 			if (!ec && bytestransfer>0)
@@ -544,7 +544,10 @@ public:
 				auto tsp = client->m_Target.lock();
 				if (tsp != nullptr)
 				{
-					tsp->Write(buffer, bytestransfer, [client, bytestransfer, handler](bool ok, size_t byteswrite)
+					InputBuffer inbuffer;
+					inbuffer.buffer = buffer->data();
+					inbuffer.bufferSize = bytestransfer;
+					tsp->Write(inbuffer, [client, bytestransfer, handler](bool ok, size_t byteswrite)
 					{
 						if (handler != nullptr)
 							handler(true, bytestransfer);
@@ -565,7 +568,7 @@ public:
 			}
 		});
 	}
-	virtual void Write(const void * buffer, size_t bufferSize, IoCompletionHandler handler) override
+	virtual void Write(InputBuffer buffer, IoCompletionHandler handler) override
 	{
 		int count = 1024 * 8;
 		while (m_Writing.test_and_set())
@@ -581,7 +584,7 @@ public:
 		auto client = shared_from_this();
 		boost::asio::async_write(
 			m_SerialPort,
-			boost::asio::const_buffer(buffer, bufferSize),
+			boost::asio::const_buffer(buffer.buffer, buffer.bufferSize),
 			[client, handler, this](const boost::system::error_code& ec, size_t bytestransfer)
 		{
 			m_Writing.clear();
@@ -593,11 +596,11 @@ public:
 			}
 		});
 	}
-	virtual void ReadSome(void * buffer, size_t bufferSize, IoCompletionHandler handler) override
+	virtual void ReadSome(OutputBuffer buffer, IoCompletionHandler handler) override
 	{
 		auto client = shared_from_this();
 		m_SerialPort.async_read_some(
-			boost::asio::buffer(buffer, bufferSize),
+			boost::asio::buffer(buffer->data(), buffer->size()),
 			[client, buffer, handler](const boost::system::error_code& ec, size_t bytestransfer)
 		{
 			if (!ec && bytestransfer > 0)
@@ -605,7 +608,10 @@ public:
 				auto tsp = client->m_Target.lock();
 				if (tsp != nullptr)
 				{
-					tsp->Write(buffer, bytestransfer, [client, bytestransfer, handler](bool ok, size_t byteswrite)
+					InputBuffer inbuffer;
+					inbuffer.buffer = buffer->data();
+					inbuffer.bufferSize = bytestransfer;
+					tsp->Write(inbuffer, [client, bytestransfer, handler](bool ok, size_t byteswrite)
 					{
 						if (handler != nullptr)
 							handler(true, bytestransfer);
@@ -626,11 +632,11 @@ public:
 			}
 		});
 	}
-	virtual void WriteSome(const void * buffer, size_t bufferSize, IoCompletionHandler handler) override
+	virtual void WriteSome(InputBuffer buffer, IoCompletionHandler handler) override
 	{
 		auto client = shared_from_this();
 		m_SerialPort.async_write_some(
-			boost::asio::const_buffer(buffer, bufferSize),
+			boost::asio::const_buffer(buffer.buffer, buffer.bufferSize),
 			[client, handler](const boost::system::error_code& ec, size_t bytestransfer)
 		{
 			handler(!ec, bytestransfer);
@@ -1127,12 +1133,12 @@ public:
 		}
 		return result;
 	}
-	virtual void Read(void* buffer, size_t bufferSize, IoCompletionHandler handler) override
+	virtual void Read(OutputBuffer buffer, IoCompletionHandler handler) override
 	{
 		auto client = shared_from_this();
 		boost::asio::async_read(
 			m_Socket,
-			boost::asio::buffer(buffer, bufferSize),
+			boost::asio::buffer(buffer->data(), buffer->size()),
 			[client, buffer, handler](const boost::system::error_code& ec, size_t bytestransfer)
 			{
 				if (!ec && bytestransfer > 0)
@@ -1140,7 +1146,10 @@ public:
 					auto tsp = client->m_Target.lock();
 					if (tsp != nullptr)
 					{
-						tsp->Write(buffer, bytestransfer, [client, bytestransfer, handler](bool ok, size_t byteswrite)
+						InputBuffer inbuffer;
+						inbuffer.buffer = buffer->data();
+						inbuffer.bufferSize = bytestransfer;
+						tsp->Write(inbuffer, [client, bytestransfer, handler](bool ok, size_t byteswrite)
 							{
 								if (handler != nullptr)
 									handler(true, bytestransfer);
@@ -1162,12 +1171,12 @@ public:
 			}
 		);
 	}
-	virtual void Write(const void* buffer, size_t bufferSize, IoCompletionHandler handler) override
+	virtual void Write(InputBuffer buffer, IoCompletionHandler handler) override
 	{
 		auto client = shared_from_this();
 		boost::asio::async_write(
 			m_Socket,
-			boost::asio::const_buffer(buffer, bufferSize),
+			boost::asio::const_buffer(buffer.buffer, buffer.bufferSize),
 			[client, handler, this](const boost::system::error_code& ec, size_t bytestransfer)
 			{
 				if (handler != nullptr)
@@ -1180,11 +1189,11 @@ public:
 			}
 		);
 	}
-	virtual void ReadSome(void* buffer, size_t bufferSize, IoCompletionHandler handler) override
+	virtual void ReadSome(OutputBuffer buffer, IoCompletionHandler handler) override
 	{
 		auto client = shared_from_this();
 		m_Socket.async_read_some(
-			boost::asio::buffer(buffer, bufferSize),
+			boost::asio::buffer(buffer->data(), buffer->size()),
 			[client, buffer, handler](const boost::system::error_code& ec, size_t bytestransfer)
 			{
 				if (!ec && bytestransfer > 0)
@@ -1192,7 +1201,10 @@ public:
 					auto tsp = client->m_Target.lock();
 					if (tsp != nullptr)
 					{
-						tsp->Write(buffer, bytestransfer, [client, bytestransfer, handler](bool ok, size_t byteswrite)
+						InputBuffer inbuffer;
+						inbuffer.buffer = buffer->data();
+						inbuffer.bufferSize = bytestransfer;
+						tsp->Write(inbuffer, [client, bytestransfer, handler](bool ok, size_t byteswrite)
 							{
 								if (handler != nullptr)
 									handler(true, bytestransfer);
@@ -1214,11 +1226,11 @@ public:
 			}
 		);
 	}
-	virtual void WriteSome(const void* buffer, size_t bufferSize, IoCompletionHandler handler) override
+	virtual void WriteSome(InputBuffer buffer, IoCompletionHandler handler) override
 	{
 		auto client = shared_from_this();
 		m_Socket.async_write_some(
-			boost::asio::const_buffer(buffer, bufferSize),
+			boost::asio::const_buffer(buffer.buffer, buffer.bufferSize),
 			[client, handler](const boost::system::error_code& ec, size_t bytestransfer)
 			{
 				handler(!ec, bytestransfer);

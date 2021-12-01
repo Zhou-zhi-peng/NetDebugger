@@ -743,7 +743,7 @@ void CNetDebuggerDlg::OnDeviceChannelDisconnected(std::shared_ptr<IAsyncChannel>
 void CNetDebuggerDlg::ReadChannelData(std::shared_ptr<IAsyncChannel> channel, std::shared_ptr<std::vector<uint8_t>> buffer)
 {
 	auto startTime = std::chrono::high_resolution_clock::now();
-	channel->ReadSome(buffer->data(), buffer->size(), [buffer, channel, startTime, this](bool ok, size_t io_bytes)
+	channel->ReadSome(buffer, [buffer, channel, startTime, this](bool ok, size_t io_bytes)
 	{
 		if (ok && io_bytes>0)
 		{
@@ -990,7 +990,10 @@ void CNetDebuggerDlg::SendDataToChannel(
 	IAsyncChannel::IoCompletionHandler cphandler)
 {
 	auto startTime = std::chrono::high_resolution_clock::now();
-	channel->Write(buffer, size, [startTime, cphandler, this](bool ok, size_t io_bytes)
+	IAsyncChannel::InputBuffer inbuffer;
+	inbuffer.buffer = buffer;
+	inbuffer.bufferSize = size;
+	channel->Write(inbuffer, [startTime, cphandler, this](bool ok, size_t io_bytes)
 	{
 		if (ok)
 		{

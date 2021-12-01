@@ -161,12 +161,12 @@ std::wstring TCPClientChannel::RemoteEndPoint(void) const
 	return result;
 }
 
-void TCPClientChannel::Read(void* buffer, size_t bufferSize, IoCompletionHandler handler)
+void TCPClientChannel::Read(OutputBuffer buffer, IoCompletionHandler handler)
 {
 	auto client = shared_from_this();
 	boost::asio::async_read(
 		m_Socket,
-		boost::asio::buffer(buffer, bufferSize),
+		boost::asio::buffer(buffer->data(), buffer->size()),
 		[client, handler](const boost::system::error_code& ec, size_t bytestransfer)
 	{
 		if (handler != nullptr)
@@ -179,12 +179,12 @@ void TCPClientChannel::Read(void* buffer, size_t bufferSize, IoCompletionHandler
 	}
 	);
 }
-void TCPClientChannel::Write(const void* buffer, size_t bufferSize, IoCompletionHandler handler)
+void TCPClientChannel::Write(InputBuffer buffer, IoCompletionHandler handler)
 {
 	auto client = shared_from_this();
 	boost::asio::async_write(
 		m_Socket,
-		boost::asio::const_buffer(buffer, bufferSize),
+		boost::asio::const_buffer(buffer.buffer, buffer.bufferSize),
 		[client, handler, this](const boost::system::error_code& ec, size_t bytestransfer)
 	{
 		if (handler != nullptr)
@@ -196,11 +196,11 @@ void TCPClientChannel::Write(const void* buffer, size_t bufferSize, IoCompletion
 		}
 	});
 }
-void TCPClientChannel::ReadSome(void* buffer, size_t bufferSize, IoCompletionHandler handler)
+void TCPClientChannel::ReadSome(OutputBuffer buffer, IoCompletionHandler handler)
 {
 	auto client = shared_from_this();
 	m_Socket.async_read_some(
-		boost::asio::buffer(buffer, bufferSize),
+		boost::asio::buffer(buffer->data(), buffer->size()),
 		[client, handler](const boost::system::error_code& ec, size_t bytestransfer)
 	{
 		handler(!ec, bytestransfer);
@@ -212,11 +212,11 @@ void TCPClientChannel::ReadSome(void* buffer, size_t bufferSize, IoCompletionHan
 	}
 	);
 }
-void TCPClientChannel::WriteSome(const void* buffer, size_t bufferSize, IoCompletionHandler handler)
+void TCPClientChannel::WriteSome(InputBuffer buffer, IoCompletionHandler handler)
 {
 	auto client = shared_from_this();
 	m_Socket.async_write_some(
-		boost::asio::const_buffer(buffer, bufferSize),
+		boost::asio::const_buffer(buffer.buffer, buffer.bufferSize),
 		[client, handler](const boost::system::error_code& ec, size_t bytestransfer)
 	{
 		handler(!ec, bytestransfer);

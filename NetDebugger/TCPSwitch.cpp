@@ -404,12 +404,12 @@ std::wstring TcpForwardChannel::RemoteEndPoint(void) const
 	return result;
 }
 
-void TcpForwardChannel::Read(void * buffer, size_t bufferSize, IoCompletionHandler handler)
+void TcpForwardChannel::Read(OutputBuffer buffer, IoCompletionHandler handler)
 {
 	auto client = shared_from_this();
 	boost::asio::async_read(
 		m_Socket,
-		boost::asio::buffer(buffer, bufferSize),
+		boost::asio::buffer(buffer->data(), buffer->size()),
 		[client, buffer, handler](const boost::system::error_code& ec, size_t bytestransfer)
 	{
 		if (!ec && bytestransfer > 0)
@@ -417,7 +417,10 @@ void TcpForwardChannel::Read(void * buffer, size_t bufferSize, IoCompletionHandl
 			auto tsp = client->m_Target.lock();
 			if (tsp != nullptr)
 			{
-				tsp->Write(buffer, bytestransfer, [client, bytestransfer, handler](bool ok, size_t byteswrite)
+				InputBuffer inbuffer;
+				inbuffer.buffer = buffer->data();
+				inbuffer.bufferSize = bytestransfer;
+				tsp->Write(inbuffer, [client, bytestransfer, handler](bool ok, size_t byteswrite)
 				{
 					if (handler != nullptr)
 						handler(true, bytestransfer);
@@ -438,12 +441,12 @@ void TcpForwardChannel::Read(void * buffer, size_t bufferSize, IoCompletionHandl
 		}
 	});
 }
-void TcpForwardChannel::Write(const void * buffer, size_t bufferSize, IoCompletionHandler handler)
+void TcpForwardChannel::Write(InputBuffer buffer, IoCompletionHandler handler)
 {
 	auto client = shared_from_this();
 	boost::asio::async_write(
 		m_Socket,
-		boost::asio::const_buffer(buffer, bufferSize),
+		boost::asio::const_buffer(buffer.buffer, buffer.bufferSize),
 		[client, handler, this](const boost::system::error_code& ec, size_t bytestransfer)
 	{
 		if (handler != nullptr)
@@ -456,11 +459,11 @@ void TcpForwardChannel::Write(const void * buffer, size_t bufferSize, IoCompleti
 	});
 }
 
-void TcpForwardChannel::ReadSome(void * buffer, size_t bufferSize, IoCompletionHandler handler)
+void TcpForwardChannel::ReadSome(OutputBuffer buffer, IoCompletionHandler handler)
 {
 	auto client = shared_from_this();
 	m_Socket.async_read_some(
-		boost::asio::buffer(buffer, bufferSize),
+		boost::asio::buffer(buffer->data(), buffer->size()),
 		[client, buffer, handler](const boost::system::error_code& ec, size_t bytestransfer)
 	{
 		if (!ec && bytestransfer > 0)
@@ -468,7 +471,10 @@ void TcpForwardChannel::ReadSome(void * buffer, size_t bufferSize, IoCompletionH
 			auto tsp = client->m_Target.lock();
 			if (tsp != nullptr)
 			{
-				tsp->Write(buffer, bytestransfer, [client, bytestransfer, handler](bool ok, size_t byteswrite)
+				InputBuffer inbuffer;
+				inbuffer.buffer = buffer->data();
+				inbuffer.bufferSize = bytestransfer;
+				tsp->Write(inbuffer, [client, bytestransfer, handler](bool ok, size_t byteswrite)
 				{
 					if (handler != nullptr)
 						handler(true, bytestransfer);
@@ -490,11 +496,11 @@ void TcpForwardChannel::ReadSome(void * buffer, size_t bufferSize, IoCompletionH
 	});
 }
 
-void TcpForwardChannel::WriteSome(const void * buffer, size_t bufferSize, IoCompletionHandler handler)
+void TcpForwardChannel::WriteSome(InputBuffer buffer, IoCompletionHandler handler)
 {
 	auto client = shared_from_this();
 	m_Socket.async_write_some(
-		boost::asio::const_buffer(buffer, bufferSize),
+		boost::asio::const_buffer(buffer.buffer, buffer.bufferSize),
 		[client, handler](const boost::system::error_code& ec, size_t bytestransfer)
 	{
 		handler(!ec, bytestransfer);

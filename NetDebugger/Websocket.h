@@ -16,10 +16,10 @@ public:
 	virtual std::wstring Description(void) const override;
 	virtual std::wstring LocalEndPoint(void) const override;
 	virtual std::wstring RemoteEndPoint(void) const override;
-	virtual void Read(void* buffer, size_t bufferSize, IoCompletionHandler handler) override;
-	virtual void Write(const void* buffer, size_t bufferSize, IoCompletionHandler handler) override;
-	virtual void ReadSome(void* buffer, size_t bufferSize, IoCompletionHandler handler) override;
-	virtual void WriteSome(const void* buffer, size_t bufferSize, IoCompletionHandler handler) override;
+	virtual void Read(OutputBuffer buffer, IoCompletionHandler handler) override;
+	virtual void Write(InputBuffer buffer, IoCompletionHandler handler) override;
+	virtual void ReadSome(OutputBuffer buffer, IoCompletionHandler handler) override;
+	virtual void WriteSome(InputBuffer buffer, IoCompletionHandler handler) override;
 	virtual void Cancel(void) override;
 	virtual void Close(void) override;
 public:

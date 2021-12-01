@@ -77,17 +77,16 @@ public:
 	void ReadPacket(
 		std::shared_ptr<WebSocketChannel> channel,
 		boost::asio::ip::tcp::socket& sock, 
-		void* buffer,
-		size_t bufferSize, 
+		WebSocketChannel::OutputBuffer buffer,
 		WebSocketChannel::IoCompletionHandler handler)
 	{
-		auto packet = std::make_shared<std::vector<uint8_t>>();
-		packet->reserve(bufferSize + 128);
-		packet->resize(2);
+		auto packetHeader = std::make_shared<std::vector<uint8_t>>();
+		packetHeader->reserve(128);
+		packetHeader->resize(2);
 		boost::asio::async_read(
 			sock,
-			boost::asio::buffer(packet->data(), packet->size()),
-			[channel, &sock, buffer, bufferSize, packet, handler,this](const boost::system::error_code& ec, size_t bytestransfer)
+			boost::asio::buffer(packetHeader->data(), packetHeader->size()),
+			[channel, &sock, buffer, packetHeader, handler,this](const boost::system::error_code& ec, size_t bytestransfer)
 		{
 
 			if (ec || bytestransfer==0)
@@ -103,7 +102,7 @@ public:
 			}
 			else
 			{
-				auto data = packet->data();
+				auto data = packetHeader->data();
 				fin = (data[0] & 0x80) == 0x80;
 				opcode = (WebSocketHeader::opcode_type)(data[0] & 0x0f);
 				mask = (data[1] & 0x80) == 0x80;
@@ -111,17 +110,17 @@ public:
 
 				if (payloadLength < 126)
 				{
-					ReadPacketData(channel, sock, buffer, bufferSize, packet, handler);
+					ReadPacketData(channel, sock, buffer, packetHeader, handler);
 				}
 				else
 				{
 					if (payloadLength == 126)
 					{
-						ReadPacketLength(channel, sock, buffer, bufferSize, packet, 2, handler);
+						ReadPacketLength(channel, sock, buffer, packetHeader, 2, handler);
 					}
 					else
 					{
-						ReadPacketLength(channel, sock, buffer, bufferSize, packet, 8, handler);
+						ReadPacketLength(channel, sock, buffer, packetHeader, 8, handler);
 					}
 				}
 			}
@@ -141,8 +140,7 @@ private:
 	void ReadPacketLength(
 		std::shared_ptr<WebSocketChannel> channel,
 		boost::asio::ip::tcp::socket& sock,
-		void* buffer,
-		size_t bufferSize,
+		WebSocketChannel::OutputBuffer buffer,
 		std::shared_ptr<std::vector<uint8_t>> packet,
 		size_t lengthSize,
 		WebSocketChannel::IoCompletionHandler handler)
@@ -152,7 +150,7 @@ private:
 		boost::asio::async_read(
 			sock,
 			boost::asio::buffer(packet->data() + offset, packet->size() - offset),
-			[channel, &sock, buffer, bufferSize, packet, handler, this](const boost::system::error_code& ec, size_t bytestransfer)
+			[channel, &sock, buffer, packet, handler, this](const boost::system::error_code& ec, size_t bytestransfer)
 		{
 
 			if (ec || bytestransfer == 0)
@@ -185,7 +183,7 @@ private:
 					payloadLength |= (static_cast<uint64_t>(data[3]) << 48);
 					payloadLength |= (static_cast<uint64_t>(data[2]) << 56);
 				}
-				ReadPacketData(channel, sock, buffer, bufferSize, packet, handler);
+				ReadPacketData(channel, sock, buffer, packet, handler);
 			}
 		});
 	}
@@ -193,8 +191,7 @@ private:
 	void ReadPacketData(
 		std::shared_ptr<WebSocketChannel> channel,
 		boost::asio::ip::tcp::socket& sock,
-		void* buffer,
-		size_t bufferSize,
+		WebSocketChannel::OutputBuffer buffer,
 		std::shared_ptr<std::vector<uint8_t>> packet,
 		WebSocketChannel::IoCompletionHandler handler)
 	{
@@ -206,7 +203,7 @@ private:
 		boost::asio::async_read(
 			sock,
 			boost::asio::buffer(packet->data() + offset, packet->size() - offset),
-			[channel, &sock, buffer, bufferSize, packet, handler, this](const boost::system::error_code& ec, size_t bytestransfer)
+			[channel, &sock, buffer, packet, handler, this](const boost::system::error_code& ec, size_t bytestransfer)
 		{
 
 			if (ec || bytestransfer == 0)
@@ -222,7 +219,8 @@ private:
 			}
 			else
 			{
-				auto payloadBuffer = reinterpret_cast<uint8_t*>(buffer);
+				buffer->resize(static_cast<size_t>(payloadLength));
+				auto payloadBuffer = reinterpret_cast<uint8_t*>(buffer->data());
 				if (mask) 
 				{
 					memcpy(masking_key, payload, sizeof(masking_key));
@@ -238,7 +236,7 @@ private:
 					memcpy(payloadBuffer, payload, static_cast<size_t>(payloadLength));
 				}
 				if (handler != nullptr)
-					handler(!ec, bytestransfer);
+					handler(!ec, static_cast<size_t>(payloadLength));
 			}
 		});
 	}
@@ -702,11 +700,11 @@ std::wstring WebSocketChannel::RemoteEndPoint(void) const
 	return result;
 }
 
-void WebSocketChannel::Read(void* buffer, size_t bufferSize, IoCompletionHandler handler)
+void WebSocketChannel::Read(OutputBuffer buffer, IoCompletionHandler handler)
 {
 	auto header = std::make_shared<WebSocketHeader>();
 	auto channel = shared_from_this();
-	header->ReadPacket(channel, m_Socket, buffer, bufferSize, [header, channel, handler](bool ok, size_t bytestransfer)
+	header->ReadPacket(channel, m_Socket, buffer, [header, channel, handler](bool ok, size_t bytestransfer)
 	{
 		if (handler != nullptr)
 			handler(ok, bytestransfer);
@@ -717,14 +715,14 @@ void WebSocketChannel::Read(void* buffer, size_t bufferSize, IoCompletionHandler
 	});
 }
 
-void WebSocketChannel::Write(const void* buffer, size_t bufferSize, IoCompletionHandler handler)
+void WebSocketChannel::Write(InputBuffer buffer, IoCompletionHandler handler)
 {
 	WebSocketHeader header;
 	header.fin = true;
 	header.opcode = IsBinaryMode() ? WebSocketHeader::BINARY_FRAME : WebSocketHeader::TEXT_FRAME;
 	header.mask = IsMessageMasked();
-	header.payload = reinterpret_cast<const uint8_t*>(buffer);
-	header.payloadLength = bufferSize;
+	header.payload = reinterpret_cast<const uint8_t*>(buffer.buffer);
+	header.payloadLength = buffer.bufferSize;
 
 	auto packet = std::make_shared<std::vector<uint8_t>>();
 	auto client = shared_from_this();
@@ -745,13 +743,13 @@ void WebSocketChannel::Write(const void* buffer, size_t bufferSize, IoCompletion
 		}
 	});
 }
-void WebSocketChannel::ReadSome(void* buffer, size_t bufferSize, IoCompletionHandler handler)
+void WebSocketChannel::ReadSome(OutputBuffer buffer, IoCompletionHandler handler)
 {
-	Read(buffer, bufferSize, handler);
+	Read(buffer, handler);
 }
-void WebSocketChannel::WriteSome(const void* buffer, size_t bufferSize, IoCompletionHandler handler)
+void WebSocketChannel::WriteSome(InputBuffer buffer, IoCompletionHandler handler)
 {
-	Write(buffer, bufferSize, handler);
+	Write(buffer, handler);
 }
 
 void WebSocketChannel::Cancel(void)

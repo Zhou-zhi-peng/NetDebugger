@@ -82,16 +82,18 @@ class IAsyncChannel
 {
 public:
 	using IoCompletionHandler = std::function<void(bool ok, size_t io_bytes)>;
+	using OutputBuffer = std::shared_ptr<std::vector<uint8_t>>;
+	typedef struct { const void* buffer; size_t bufferSize; } InputBuffer;
 public:
 	virtual std::wstring Id(void) const = 0;
 	virtual std::wstring Description(void) const = 0;
 	virtual std::wstring LocalEndPoint(void) const = 0;
 	virtual std::wstring RemoteEndPoint(void) const = 0;
 public:
-	virtual void Read(void* buffer, size_t bufferSize, IoCompletionHandler handler) = 0;
-	virtual void Write(const void* buffer, size_t bufferSize, IoCompletionHandler handler) = 0;
-	virtual void ReadSome(void* buffer, size_t bufferSize, IoCompletionHandler handler) = 0;
-	virtual void WriteSome(const void* buffer, size_t bufferSize, IoCompletionHandler handler) = 0;
+	virtual void Read(OutputBuffer buffer, IoCompletionHandler handler) = 0;
+	virtual void Write(InputBuffer buffer, IoCompletionHandler handler) = 0;
+	virtual void ReadSome(OutputBuffer buffer, IoCompletionHandler handler) = 0;
+	virtual void WriteSome(InputBuffer buffer, IoCompletionHandler handler) = 0;
 	virtual void Cancel(void) = 0;
 	virtual void Close(void) = 0;
 };

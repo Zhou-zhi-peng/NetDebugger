@@ -335,20 +335,20 @@ std::wstring UDPBasic::RemoteEndPoint(void) const
 	return result;
 }
 
-void UDPBasic::Read(void* buffer, size_t bufferSize, IoCompletionHandler handler)
+void UDPBasic::Read(OutputBuffer buffer, IoCompletionHandler handler)
 {
-	ReadSome(buffer, bufferSize, handler);
+	ReadSome(buffer, handler);
 }
-void UDPBasic::Write(const void* buffer, size_t bufferSize, IoCompletionHandler handler)
+void UDPBasic::Write(InputBuffer buffer, IoCompletionHandler handler)
 {
-	WriteSome(buffer, bufferSize, handler);
+	WriteSome(buffer, handler);
 }
-void UDPBasic::ReadSome(void* buffer, size_t bufferSize, IoCompletionHandler handler)
+void UDPBasic::ReadSome(OutputBuffer buffer, IoCompletionHandler handler)
 {
 	auto client = shared_from_this();
 	auto remoteEP = std::make_shared<boost::asio::ip::udp::endpoint>();
 	m_Socket.async_receive_from(
-		boost::asio::buffer(buffer, bufferSize),
+		boost::asio::buffer(buffer->data(), buffer->size()),
 		*remoteEP,
 		[client, remoteEP, handler](const boost::system::error_code& ec, size_t bytestransfer)
 	{
@@ -376,11 +376,11 @@ void UDPBasic::ReadSome(void* buffer, size_t bufferSize, IoCompletionHandler han
 	}
 	);
 }
-void UDPBasic::WriteSome(const void* buffer, size_t bufferSize, IoCompletionHandler handler)
+void UDPBasic::WriteSome(InputBuffer buffer, IoCompletionHandler handler)
 {
 	auto client = shared_from_this();
 	m_Socket.async_send(
-		boost::asio::const_buffer(buffer, bufferSize),
+		boost::asio::const_buffer(buffer.buffer, buffer.bufferSize),
 		[client, handler](const boost::system::error_code& ec, size_t bytestransfer)
 	{
 		handler(!ec, bytestransfer);
@@ -479,20 +479,20 @@ std::wstring UDPBasicChannel::RemoteEndPoint(void) const
 	return StringToWString(m_RemoteEP.address().to_string()) + L"#" + std::to_wstring(m_RemoteEP.port());
 }
 
-void UDPBasicChannel::Read(void * buffer, size_t bufferSize, IoCompletionHandler handler)
+void UDPBasicChannel::Read(OutputBuffer buffer, IoCompletionHandler handler)
 {
-	ReadSome(buffer, bufferSize, handler);
+	ReadSome(buffer, handler);
 }
 
-void UDPBasicChannel::Write(const void * buffer, size_t bufferSize, IoCompletionHandler handler)
+void UDPBasicChannel::Write(InputBuffer buffer, IoCompletionHandler handler)
 {
-	WriteSome(buffer, bufferSize, handler);
+	WriteSome(buffer, handler);
 }
-void UDPBasicChannel::ReadSome(void * buffer, size_t bufferSize, IoCompletionHandler handler)
+void UDPBasicChannel::ReadSome(OutputBuffer buffer, IoCompletionHandler handler)
 {
 	auto client = shared_from_this();
 	m_Device->m_Socket.async_receive_from(
-		boost::asio::buffer(buffer, bufferSize),
+		boost::asio::buffer(buffer->data(), buffer->size()),
 		m_RemoteEP,
 		[client, handler](const boost::system::error_code& ec, size_t bytestransfer)
 	{
@@ -505,11 +505,11 @@ void UDPBasicChannel::ReadSome(void * buffer, size_t bufferSize, IoCompletionHan
 	}
 	);
 }
-void UDPBasicChannel::WriteSome(const void * buffer, size_t bufferSize, IoCompletionHandler handler)
+void UDPBasicChannel::WriteSome(InputBuffer buffer, IoCompletionHandler handler)
 {
 	auto client = shared_from_this();
 	m_Device->m_Socket.async_send_to(
-		boost::asio::const_buffer(buffer, bufferSize),
+		boost::asio::const_buffer(buffer.buffer,buffer.bufferSize),
 		m_RemoteEP,
 		[client, handler](const boost::system::error_code& ec, size_t bytestransfer)
 	{
@@ -820,19 +820,19 @@ std::wstring UDPClient::RemoteEndPoint(void) const
 	return result;
 }
 
-void UDPClient::Read(void* buffer, size_t bufferSize, IoCompletionHandler handler)
+void UDPClient::Read(OutputBuffer buffer, IoCompletionHandler handler)
 {
-	ReadSome(buffer, bufferSize, handler);
+	ReadSome(buffer, handler);
 }
-void UDPClient::Write(const void* buffer, size_t bufferSize, IoCompletionHandler handler)
+void UDPClient::Write(InputBuffer buffer, IoCompletionHandler handler)
 {
-	WriteSome(buffer, bufferSize, handler);
+	WriteSome(buffer, handler);
 }
-void UDPClient::ReadSome(void* buffer, size_t bufferSize, IoCompletionHandler handler)
+void UDPClient::ReadSome(OutputBuffer buffer, IoCompletionHandler handler)
 {
 	auto client = shared_from_this();
 	m_Socket.async_receive_from(
-		boost::asio::buffer(buffer, bufferSize),
+		boost::asio::buffer(buffer->data(),buffer->size()),
 		m_RemoteEndpoint,
 		[client, handler](const boost::system::error_code& ec, size_t bytestransfer)
 	{
@@ -845,11 +845,11 @@ void UDPClient::ReadSome(void* buffer, size_t bufferSize, IoCompletionHandler ha
 	}
 	);
 }
-void UDPClient::WriteSome(const void* buffer, size_t bufferSize, IoCompletionHandler handler)
+void UDPClient::WriteSome(InputBuffer buffer, IoCompletionHandler handler)
 {
 	auto client = shared_from_this();
 	m_Socket.async_send_to(
-		boost::asio::const_buffer(buffer, bufferSize),
+		boost::asio::const_buffer(buffer.buffer, buffer.bufferSize),
 		m_RemoteEndpoint,
 		[client, handler](const boost::system::error_code& ec, size_t bytestransfer)
 	{
