@@ -1,0 +1,36 @@
+name: Build
+
+on:
+  push:
+    paths-ignore:
+      - '.github/*'
+      - '*.md'
+  pull_request:
+    paths-ignore:
+      - '.github/*'
+      - '*.md'
+
+jobs:
+  build:
+    runs-on: windows-latest
+    env:
+      POWERSHELL_TELEMETRY_OPTOUT: 1
+    steps:
+    - uses: actions/checkout@v2
+    - uses: microsoft/setup-msbuild@v1
+    - name: Restore nuget package
+      run: nuget restore
+    - name: Build all targets
+      run: msbuild -m BuildAllTargets.proj
+    - name: Generate release tag
+      id: tag
+      run: echo "::set-output name=release_tag::NetDebugger_$(Get-Date -Format "yyyy.MM.dd_HH_mm")"
+    - name: Release bin files
+      uses: softprops/action-gh-release@v1
+      with:
+        tag_name: ${{ steps.tag.outputs.release_tag }}
+        files: |
+          Bin/NetDebugger_Debug_x86.exe
+          Bin/NetDebugger_Debug_x64.exe
+          Bin/NetDebugger_Release_x86.exe
+          Bin/NetDebugger_Release_x64.exe
