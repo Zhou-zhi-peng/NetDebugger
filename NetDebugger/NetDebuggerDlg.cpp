@@ -15,6 +15,7 @@
 #include "CSendHistoryDlg.h"
 #include "TextEncodeType.h"
 #include "GdiplusAux.hpp"
+#include "fast_memcpy.hpp"
 
 #ifdef _DEBUG
 #define new DEBUG_NEW
@@ -164,6 +165,7 @@ BEGIN_MESSAGE_MAP(CNetDebuggerDlg, CDialogEx)
 	ON_WM_DESTROY()
 	ON_WM_TIMER()
 	ON_MESSAGE(kWM_UI_THREAD_TASK, &CNetDebuggerDlg::OnUIThreadTask)
+	ON_MESSAGE(kWM_SELECT_BUTTON_CHANGED, &CNetDebuggerDlg::OnEditRecvBoxDisplayTypeChanged)
 	ON_BN_CLICKED(IDC_BUTTON_SEND, &CNetDebuggerDlg::OnBnClickedButtonSend)
 	ON_BN_CLICKED(IDC_BUTTON_CLEAR_STATISTICS, &CNetDebuggerDlg::OnBnClickedButtonClearStatistics)
 	ON_BN_CLICKED(IDC_BUTTON_RECV_CLEAR, &CNetDebuggerDlg::OnBnClickedButtonRecvClear)
@@ -235,14 +237,14 @@ void CNetDebuggerDlg::LoadSendHistory(void)
 	{
 		auto history = std::make_shared<SendHistoryRecord>();
 		history->TextEncoding = *reinterpret_cast<int*>(ptr); ptr += sizeof(int); if (ptr >= end) break;
-		auto datasize = *reinterpret_cast<int*>(ptr); 
-		ptr += sizeof(int); 
-		if (ptr >= end) 
+		auto datasize = *reinterpret_cast<int*>(ptr);
+		ptr += sizeof(int);
+		if (ptr >= end)
 			break;
 		if (datasize > kMAX_MEMBLOCK_SIZE)
 			break;
 		history->DataBuffer.resize(datasize);
-		memcpy(history->DataBuffer.data(), ptr, datasize); 
+		memcpy(history->DataBuffer.data(), ptr, datasize);
 		m_HistoryRecords.push_back(history);
 		ptr += datasize;
 		if (ptr >= end)
@@ -264,7 +266,7 @@ void CNetDebuggerDlg::SaveSendHistory(void)
 		buffer.resize(buffer.size() + sizeof(int));
 		ptr = buffer.data() + idx;
 		*reinterpret_cast<int*>(ptr) = (int)history->DataBuffer.size();
-		
+
 		idx = buffer.size();
 		buffer.resize(buffer.size() + history->DataBuffer.size());
 		ptr = buffer.data() + idx;
@@ -353,7 +355,7 @@ BOOL CNetDebuggerDlg::OnInitDialog()
 	m_ToolTipCtrl.AddTool(GetDlgItem(IDC_BUTTON_SEND_HISTORY), LSTEXT(TOOLTIP.BUTTON.SEND.HISTORY));
 	m_ToolTipCtrl.AddTool(GetDlgItem(IDC_EDIT_SEND_INTERVAL), LSTEXT(TOOLTIP.EDIT.SEND.INTERVAL));
 	m_ToolTipCtrl.AddTool(GetDlgItem(IDC_BUTTON_SEND), LSTEXT(TOOLTIP.BUTTON.SEND));
-	
+
 	SetWindowText(LSTEXT(MAINWND.TITLE));
 
 	SetControlText(IDC_STATIC_DEVICE_TYPE, LSTEXT(MAINWND.STATIC.DEVICE.TYPE));
@@ -392,7 +394,7 @@ BOOL CNetDebuggerDlg::OnInitDialog()
 		m_ToolTipCtrl.UpdateTipText(LSTEXT(TOOLTIP.BUTTON.SEND), GetDlgItem(IDC_BUTTON_SEND));
 
 		SetWindowText(LSTEXT(MAINWND.TITLE));
-		
+
 		SetControlText(IDC_STATIC_DEVICE_TYPE, LSTEXT(MAINWND.STATIC.DEVICE.TYPE));
 		SetControlText(IDC_STATIC_MEMORY_MAX, LSTEXT(MAINWND.STATIC.MEMORY.MAX));
 		SetControlText(IDC_STATIC_CHANNEL, LSTEXT(MAINWND.STATIC.CHANNEL));
@@ -434,7 +436,7 @@ BOOL CNetDebuggerDlg::OnInitDialog()
 			OnCbnSelchangeCmbNetType();
 		}
 	}
-	
+
 	{
 		m_DevicePropertyPanel.EnableDescriptionArea();
 		m_DevicePropertyPanel.SetVSDotNetLook(TRUE);
@@ -691,7 +693,7 @@ void CNetDebuggerDlg::OnDeviceStatusChanged(IDevice::DeviceStatus status, const 
 	default:
 		break;
 	}
-	SendUIThreadTask([this]() 
+	SendUIThreadTask([this]()
 	{
 		if (this->GetSafeHwnd() == nullptr)
 			return;
@@ -716,7 +718,7 @@ void CNetDebuggerDlg::OnDeviceChannelConnected(std::shared_ptr<IAsyncChannel> ch
 		if (m_ChannelsCtrl.GetCount() == 1)
 			m_ChannelsCtrl.SetCurSel(0);
 	});
-	
+
 	auto buffer = std::make_shared<std::vector<uint8_t>>();
 	buffer->reserve(1024 * 8);
 	buffer->resize(buffer->capacity());
@@ -826,6 +828,42 @@ LRESULT CNetDebuggerDlg::OnUIThreadTask(WPARAM wParam, LPARAM lParam)
 	return 0;
 }
 
+LRESULT CNetDebuggerDlg::OnEditRecvBoxDisplayTypeChanged(WPARAM wParam, LPARAM lParam) {
+	auto id = static_cast<UINT>(wParam);
+	auto value = static_cast<TextEncodeType>(lParam);
+	if (id == IDC_RECV_DISPLAY_TYPE) {
+		m_ReadBufferMutex.lock();
+
+		DataBufferIterator it(m_ReadBuffer);
+		auto dataLength = m_ReadBuffer.Size();
+		if (dataLength == 0) {
+			m_ReadBufferMutex.unlock();
+			return 0;
+		}
+
+		std::vector<uint8_t> str(dataLength);
+		size_t offset = 0;
+		uint8_t* dst = static_cast<uint8_t*>(str.data());
+
+		do
+		{
+			fast_memcpy(dst + offset, it.Data(), it.Length());
+			offset += it.Length();
+		} while (it.Next());
+
+		m_ReadBufferMutex.unlock();
+
+
+		m_RecvEditCtrl.SetText(Transform::DecodeToWString(str, (TextEncodeType)m_RecvDisplayTypeCtrl.GetValue()));
+		auto textLen = m_RecvEditCtrl.GetTextLength();
+		if (textLen > (long)m_MaxReadMemorySize)
+		{
+			m_RecvEditCtrl.ClearAll();
+		}
+	}
+	return 0;
+}
+
 static CString GetCComboBoxExText(CComboBoxEx& ctrl)
 {
 	auto i = ctrl.GetCurSel();
@@ -905,7 +943,7 @@ void CNetDebuggerDlg::OnCbnSelchangeCmbNetType()
 			AddComboBoxString(m_ChannelsCtrl, L"所有通道", nullptr);
 		}
 
-		dev->OnStatusChanged([this](IDevice::DeviceStatus status, const std::wstring& message) 
+		dev->OnStatusChanged([this](IDevice::DeviceStatus status, const std::wstring& message)
 		{
 			OnDeviceStatusChanged(status, message);
 		});
@@ -913,7 +951,7 @@ void CNetDebuggerDlg::OnCbnSelchangeCmbNetType()
 		{
 			OnDevicePropertyChanged();
 		});
-		dev->OnChannelConnected([this](std::shared_ptr<IAsyncChannel> channel, const std::wstring& message) 
+		dev->OnChannelConnected([this](std::shared_ptr<IAsyncChannel> channel, const std::wstring& message)
 		{
 			OnDeviceChannelConnected(channel, message);
 		});
@@ -984,7 +1022,7 @@ void CNetDebuggerDlg::OnBnClickedButtonConnect()
 }
 
 void CNetDebuggerDlg::SendDataToChannel(
-	std::shared_ptr<IAsyncChannel> channel, 
+	std::shared_ptr<IAsyncChannel> channel,
 	const void* buffer,
 	size_t size,
 	IAsyncChannel::IoCompletionHandler cphandler)
@@ -1067,7 +1105,7 @@ void CNetDebuggerDlg::StartSendFileToChannel(std::shared_ptr<IAsyncChannel> chan
 		return;
 	}
 	auto listener = std::make_shared<PopWindowListener>();
-	listener->OnClosing = [fsctx](int iReason) 
+	listener->OnClosing = [fsctx](int iReason)
 	{
 		if (fsctx->stoped)
 			return true;
@@ -1094,7 +1132,7 @@ void CNetDebuggerDlg::AppendSendHistory(UINT type, std::shared_ptr<std::vector<u
 	auto history = std::make_shared<SendHistoryRecord>();
 	history->TextEncoding = (int)type;
 	history->DataBuffer = *buffer;
-	
+
 	for (auto h : m_HistoryRecords)
 	{
 		if (*history == *h)
@@ -1243,12 +1281,12 @@ void CNetDebuggerDlg::OnClose()
 			return;
 		m_Closed = false;
 		m_CDevice->Stop();
-		theApp.GetIOContext().post([this]() 
+		theApp.GetIOContext().post([this]()
 		{
 			while (!m_Closed)
 				Sleep(16);
 
-			PostUIThreadTask([this]() 
+			PostUIThreadTask([this]()
 			{
 				CDialogEx::OnOK();
 			});
@@ -1267,7 +1305,7 @@ void CNetDebuggerDlg::OnDestroy()
 	theApp.WriteProfileInt(L"Setting", L"AutoSave", m_AutoSaveCtrl.GetCheck());
 	theApp.WriteProfileInt(L"Setting", L"LabelAdditional", m_RecvInfoAdditionalCtrl.GetCheck());
 	theApp.WriteProfileInt(L"Setting", L"ShowRecvData", m_ShowRecvDataCtrl.GetCheck());
-	
+
 	CString path;
 	m_AutoSaveFilePathCtrl.GetWindowText(path);
 	theApp.WriteProfileString(L"Setting", L"AutoSaveFilePath", path);

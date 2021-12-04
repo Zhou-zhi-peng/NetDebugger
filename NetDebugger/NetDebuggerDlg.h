@@ -63,7 +63,7 @@ private:
 		std::string label;
 		std::string message;
 	};
-	
+
 	HICON m_hIcon;
 	CSize m_MinSize;
 	CComboBoxEx m_DeviceTypeCtrl;
@@ -117,6 +117,7 @@ protected:
 	afx_msg void OnDestroy();
 	afx_msg void OnTimer(UINT_PTR nIDEvent);
 	afx_msg LRESULT OnUIThreadTask(WPARAM wParam, LPARAM lParam);
+	afx_msg LRESULT OnEditRecvBoxDisplayTypeChanged(WPARAM wParam, LPARAM lParam);
 	afx_msg void OnBnClickedButtonSend();
 	afx_msg void OnBnClickedButtonClearStatistics();
 	afx_msg void OnBnClickedButtonRecvClear();
