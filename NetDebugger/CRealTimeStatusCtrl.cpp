@@ -1,4 +1,4 @@
-#include "pch.h"
+ï»¿#include "pch.h"
 #include "NetDebugger.h"
 #include "CRealTimeStatusCtrl.h"
 #include "GdiplusAux.hpp"
@@ -105,7 +105,7 @@ int CRealTimeStatusCtrl::DrawStatisicsString(Gdiplus::Graphics& graphics,const G
 {
 	graphics.SetSmoothingMode(Gdiplus::SmoothingMode::SmoothingModeAntiAlias);
 	graphics.SetTextRenderingHint(Gdiplus::TextRenderingHint::TextRenderingHintClearTypeGridFit);
-	
+
 	auto fontFamily = CreateUIFontFamily();
 	Gdiplus::Font font(fontFamily.get(), 16.0f, Gdiplus::FontStyleRegular, Gdiplus::UnitPixel);
 	CString statisticsRXC;
@@ -157,28 +157,28 @@ int CRealTimeStatusCtrl::DrawStatisicsString(Gdiplus::Graphics& graphics,const G
 	textBrush.SetColor(Gdiplus::Color::White);
 	textRectRXC.Offset(-1.0f, -1.0f);
 	graphics.DrawString(statisticsRXC.GetString(), statisticsRXC.GetLength(), &font, textRectRXC, &sf, &textBrush);
-	
+
 	textBrush.SetColor(Gdiplus::Color::Black);
 	textRectTXC.Offset(1.0f, 1.0f);
 	graphics.DrawString(statisticsTXC.GetString(), statisticsTXC.GetLength(), &font, textRectTXC, &sf, &textBrush);
 	textBrush.SetColor(Gdiplus::Color::White);
 	textRectTXC.Offset(-1.0f, -1.0f);
 	graphics.DrawString(statisticsTXC.GetString(), statisticsTXC.GetLength(), &font, textRectTXC, &sf, &textBrush);
-	
+
 	textBrush.SetColor(Gdiplus::Color::Black);
 	textRectRXS.Offset(1.0f, 1.0f);
 	graphics.DrawString(statisticsRXS.GetString(), statisticsRXS.GetLength(), &font, textRectRXS, &sf, &textBrush);
 	textBrush.SetColor(Gdiplus::Color(204, 255, 153));
 	textRectRXS.Offset(-1.0f, -1.0f);
 	graphics.DrawString(statisticsRXS.GetString(), statisticsRXS.GetLength(), &font, textRectRXS, &sf, &textBrush);
-	
+
 	textBrush.SetColor(Gdiplus::Color::Black);
 	textRectTXS.Offset(1.0f, 1.0f);
 	graphics.DrawString(statisticsTXS.GetString(), statisticsTXS.GetLength(), &font, textRectTXS, &sf, &textBrush);
 	textBrush.SetColor(Gdiplus::Color(255, 102, 102));
 	textRectTXS.Offset(-1.0f, -1.0f);
 	graphics.DrawString(statisticsTXS.GetString(), statisticsTXS.GetLength(), &font, textRectTXS, &sf, &textBrush);
-	
+
 	return (int)bottom;
 }
 
@@ -208,7 +208,7 @@ void CRealTimeStatusCtrl::DrawSpeedCurve(Gdiplus::Graphics& graphics, const Gdip
 		x += kXSTEP_LENGTH;
 	}
 	path.AddCurve(points.data(), (int)points.size());
-	points.clear(); 
+	points.clear();
 	points.push_back(Gdiplus::Point(x - kXSTEP_LENGTH, b));
 	points.push_back(Gdiplus::Point(0, b));
 	path.AddLines(points.data(), (int)points.size());
@@ -247,7 +247,7 @@ void CRealTimeStatusCtrl::DrawSpeedCurve(Gdiplus::Graphics& graphics, const Gdip
 
 void CRealTimeStatusCtrl::DrawDisconnectedStatus(Gdiplus::Graphics& graphics, const Gdiplus::RectF& clientRect)
 {
-	CString str = L"Î´Á¬½Ó";
+	CString str = L"æœªè¿žæŽ¥";
 	auto fontFamily = CreateUIFontFamily();
 	Gdiplus::Font font(fontFamily.get(), 22.0f, Gdiplus::FontStyleRegular, Gdiplus::UnitPixel);
 	Gdiplus::SolidBrush brush(Gdiplus::Color(255, 255, 255));
