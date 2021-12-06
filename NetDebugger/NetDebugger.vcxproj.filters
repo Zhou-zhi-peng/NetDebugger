@@ -213,6 +213,7 @@
     <None Include="CHelpDialog.html">
       <Filter>资源文件</Filter>
     </None>
+    <None Include="packages.config" />
   </ItemGroup>
   <ItemGroup>
     <Image Include="res\NetDebugger.ico">

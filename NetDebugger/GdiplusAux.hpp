@@ -1,4 +1,4 @@
-#pragma once
+ï»¿#pragma once
 
 inline Gdiplus::REAL MeasureStringHeight(Gdiplus::Graphics& graphics, const CString& str, const Gdiplus::Font& font, int width)
 {
@@ -17,7 +17,7 @@ inline std::shared_ptr<Gdiplus::FontFamily> CreateUIFontFamily()
 	if (fontFamily->GetLastStatus() != Gdiplus::Status::Ok)
 		fontFamily.reset(new Gdiplus::FontFamily(L"Arial"));
 	if (fontFamily->GetLastStatus() != Gdiplus::Status::Ok)
-		fontFamily.reset(new Gdiplus::FontFamily(L"ËÎÌå"));
+		fontFamily.reset(new Gdiplus::FontFamily(L"å®‹ä½“"));
 	if (fontFamily->GetLastStatus() != Gdiplus::Status::Ok)
 	{
 		LOGFONT logfont;
