@@ -800,7 +800,7 @@ void WebSocketClientChannel::Connect(
 			m_ConnectQueryString = query;
 			auto channel = shared_from_this();
 			boost::system::error_code ec;
-			auto rslv = std::make_shared<boost::asio::ip::tcp::resolver>(GetSocket().get_io_context());
+			auto rslv = std::make_shared<boost::asio::ip::tcp::resolver>(theApp.GetIOContext());
 			boost::asio::ip::tcp::resolver::query qry(host, std::to_string(port));
 			rslv->async_resolve(qry, [rslv, channel, query, host, port, handler](const boost::system::error_code &ec, boost::asio::ip::tcp::resolver::iterator iter)
 			{

@@ -1279,7 +1279,7 @@ protected:
 		{
 			auto channel = shared_from_this();
 			boost::system::error_code ec;
-			auto rslv = std::make_shared<boost::asio::ip::tcp::resolver>(m_Socket.get_io_context());
+			auto rslv = std::make_shared<boost::asio::ip::tcp::resolver>(theApp.GetIOContext());
 			boost::asio::ip::tcp::resolver::query qry(WStringToString(m_ServerURL), std::to_string(m_RemotePort));
 			auto keepAlive = m_Keepalive;
 			rslv->async_resolve(qry, [rslv, channel, keepAlive, handler](const boost::system::error_code& ec, boost::asio::ip::tcp::resolver::iterator iter)
