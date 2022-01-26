@@ -241,7 +241,7 @@ void TCPForwardServer::StartAcceptClient(void)
 void TCPForwardServer::ConnectServer(std::shared_ptr<TCPForwardServer> self, std::shared_ptr<TcpForwardChannel> channelClient, std::shared_ptr<TcpForwardChannel> channelServer)
 {
 	boost::system::error_code ec;
-	auto rslv = std::make_shared<boost::asio::ip::tcp::resolver>(self->m_Acceptor.get_io_context());
+	auto rslv = std::make_shared<boost::asio::ip::tcp::resolver>(theApp.GetIOContext());
 	boost::asio::ip::tcp::resolver::query qry(WStringToString(self->m_RemoteHost), std::to_string(self->m_RemotePort));
 	rslv->async_resolve(qry, [rslv, self, channelClient, channelServer](const boost::system::error_code &ec, boost::asio::ip::tcp::resolver::iterator iter)
 	{

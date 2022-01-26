@@ -210,7 +210,7 @@ void TCPServer::Stop(void)
 
 TcpChannel::TcpChannel(std::shared_ptr<TCPServer> owner) :
 	m_Owner(owner),
-	m_Socket(owner->m_Acceptor.get_io_context())
+	m_Socket(theApp.GetIOContext())
 {
 
 }

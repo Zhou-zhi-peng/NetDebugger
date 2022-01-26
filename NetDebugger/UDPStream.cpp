@@ -172,7 +172,7 @@ void UDPBasic::Start(void)
 	std::thread connectThread([client]()
 	{
 		boost::system::error_code ec;
-		boost::asio::ip::udp::resolver rslv(client->m_Socket.get_io_context());
+		boost::asio::ip::udp::resolver rslv(theApp.GetIOContext());
 		boost::asio::ip::udp::resolver::query qry(WStringToString(client->m_RemoteAddress), std::to_string(client->m_RemotePort));
 		boost::asio::ip::udp::resolver::iterator iter = rslv.resolve(qry, ec);
 		boost::asio::ip::udp::resolver::iterator end;
@@ -652,7 +652,7 @@ void UDPClient::Start(void)
 	std::thread connectThread([client]()
 	{
 		boost::system::error_code ec;
-		boost::asio::ip::udp::resolver rslv(client->m_Socket.get_io_context());
+		boost::asio::ip::udp::resolver rslv(theApp.GetIOContext());
 		boost::asio::ip::udp::resolver::query qry(WStringToString(client->m_RemoteAddress), std::to_string(client->m_RemotePort));
 		boost::asio::ip::udp::resolver::iterator iter = rslv.resolve(qry, ec);
 		boost::asio::ip::udp::resolver::iterator end;
