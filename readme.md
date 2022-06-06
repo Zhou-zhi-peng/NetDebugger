@@ -40,15 +40,20 @@
 该类客户端主要用于同时生成大量客户端连接到服务器，并进行数据收发，用以对服务器端进行压力测试。
 
 **不想编译BOOST库，如何直接使用？**  
-直接下载Bin目录中的EXE文件就可以直接使用。  
-如果报应用程序配置不正确，请安装VS2017 C++ 运行时库，也在Bin目录中可以直接下载。  
-软件下载页面：<https://github.com/Zhou-zhi-peng/NetDebugger/releases>
-运行时下载地址：
-X64：<https://aka.ms/vs/17/release/vc_redist.x64.exe>
-X86：<https://aka.ms/vs/17/release/vc_redist.x86.exe>
+直接下载Bin目录中的EXE文件就可以直接使用。  <br>
+如果报应用程序配置不正确，请安装VS2017 C++ 运行时库，也在Bin目录中可以直接下载。  <br>
+软件下载页面：<br>
+> <https://github.com/Zhou-zhi-peng/NetDebugger/releases> <br>
+> 如果没什么特殊需求直接下载NetDebugger_Release_x64.exe <br>
+<br>
+运行时下载地址：<br>
+X64: https://aka.ms/vs/17/release/vc_redist.x64.exe <br>
+X86: https://aka.ms/vs/17/release/vc_redist.x86.exe <br>
 
 ## 支持&捐赠
 
-如果你觉得该软件对你有帮助，想支持一下作者，可扫码向作者进行捐赠，如果觉得没什么用，也可以向作者提出你的意见： <https://github.com/Zhou-zhi-peng/NetDebugger/issues/new>
+如果你觉得该软件对你有帮助，想支持一下作者，可扫码向作者进行捐赠，<br>
+如果觉得没什么用，也可以向作者提出你的意见：<br>
+<https://github.com/Zhou-zhi-peng/NetDebugger/issues/new> <br>
 
 ![支持作者](https://github.com/Zhou-zhi-peng/NetDebugger/blob/main/85347.png?raw=true)
