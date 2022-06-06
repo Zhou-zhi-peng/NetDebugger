@@ -11,13 +11,16 @@
 **编译器：**
 该工具使用 VS2017 编译  
 **依赖第三方库：**  
+
 + boost 1.68.0  
   
 **编译配置：**  
+
 + “项目配置-> C++ -> 附加包含目录” 添加boost 1.68.0 包含目录
 + “项目配置-> 链接器 -> 附加库目录” 添加boost 1.68.0 库输出目录
 
 ## 屏幕截图
+
 ![支持作者](https://github.com/Zhou-zhi-peng/NetDebugger/blob/main/Screen/191951.png?raw=true)
 
 ![支持作者](https://github.com/Zhou-zhi-peng/NetDebugger/blob/main/Screen/192119.png?raw=true)
@@ -39,11 +42,13 @@
 **不想编译BOOST库，如何直接使用？**  
 直接下载Bin目录中的EXE文件就可以直接使用。  
 如果报应用程序配置不正确，请安装VS2017 C++ 运行时库，也在Bin目录中可以直接下载。  
-软件下载地址：https://github.com/Zhou-zhi-peng/NetDebugger/raw/main/Bin/NetDebugger64.exe 
-运行时下载地址：https://github.com/Zhou-zhi-peng/NetDebugger/raw/main/Bin/VC_redist.x86.exe
+软件下载页面：<https://github.com/Zhou-zhi-peng/NetDebugger/releases>
+运行时下载地址：
+X64：<https://aka.ms/vs/17/release/vc_redist.x64.exe>
+X86：<https://aka.ms/vs/17/release/vc_redist.x86.exe>
 
 ## 支持&捐赠
 
-如果你觉得该软件对你有帮助，想支持一下作者，可扫码向作者进行捐赠，如果觉得没什么用，也可以向作者提出你的意见： https://github.com/Zhou-zhi-peng/NetDebugger/issues/new
+如果你觉得该软件对你有帮助，想支持一下作者，可扫码向作者进行捐赠，如果觉得没什么用，也可以向作者提出你的意见： <https://github.com/Zhou-zhi-peng/NetDebugger/issues/new>
 
 ![支持作者](https://github.com/Zhou-zhi-peng/NetDebugger/blob/main/85347.png?raw=true)
