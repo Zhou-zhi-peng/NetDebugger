@@ -1,6 +1,24 @@
 #pragma once
 #include "IAsyncStream.h"
 
+struct http_header_key_less
+{
+	struct nocase_compare
+	{
+		bool operator() (const unsigned char& c1, const unsigned char& c2) const {
+			return tolower(c1) < tolower(c2);
+		}
+	};
+
+	bool operator() (const std::string& s1, const std::string& s2) const {
+		return std::lexicographical_compare
+		(s1.begin(), s1.end(),
+			s2.begin(), s2.end(),
+			nocase_compare());
+	}
+};
+using http_header_collections = std::map<std::string, std::string, http_header_key_less>;
+
 class WebSocketClient;
 
 class WebSocketChannel :
@@ -35,8 +53,8 @@ protected:
 protected:
 	std::string m_ConnectQueryString;
 	std::string m_HttpVersion;
-	std::map<std::string, std::string> m_RequestHeaders;
-	std::map<std::string, std::string> m_ResponseHeaders;
+	http_header_collections m_RequestHeaders;
+	http_header_collections m_ResponseHeaders;
 private:
 	boost::asio::ip::tcp::socket m_Socket;
 	std::atomic<bool> m_Opened;
@@ -52,7 +70,7 @@ public:
 	void SetOwner(std::shared_ptr<WebSocketClient> owner) { m_Device = owner; }
 	void Connect(
 		const std::wstring& endpoint,
-		const std::map<std::string, std::string>& header, 
+		const http_header_collections& header, 
 		std::function<void(const boost::system::error_code ec)> handler);
 protected:
 	virtual void OnNotifyClose(const boost::system::error_code& ecClose) override;
@@ -84,7 +102,7 @@ public:
 public:
 	virtual void NotifyChannelClose(std::shared_ptr<WebSocketChannel> channel, const boost::system::error_code& ecClose) = 0;
 protected:
-	virtual std::map<std::string, std::string> GetHttpHeader();
+	virtual http_header_collections GetHttpHeader();
 	virtual std::shared_ptr<WebSocketClient> GetSharedPtr() = 0;
 protected:
 	bool m_bBinaryMode;

@@ -369,7 +369,7 @@ static std::string GetRandomString()
 	return std::string(buffer, sizeof(buffer));
 }
 
-static std::string GetHttpHeaderValue(const std::map<std::string, std::string>& headers, const std::string& key, const std::string& defaultValue)
+static std::string GetHttpHeaderValue(const http_header_collections& headers, const std::string& key, const std::string& defaultValue)
 {
 	auto it = headers.find(key);
 	if (it == headers.end())
@@ -377,7 +377,7 @@ static std::string GetHttpHeaderValue(const std::map<std::string, std::string>& 
 	return it->second;
 }
 
-static std::string GetHttpHeaderValue(const std::map<std::string, std::string>& headers, const std::string& key)
+static std::string GetHttpHeaderValue(const http_header_collections& headers, const std::string& key)
 {
 	return GetHttpHeaderValue(headers, key, std::string());
 }
@@ -387,7 +387,7 @@ static std::shared_ptr<std::string> HttpConnectString(
 	const std::string& host,
 	const std::string& id,
 	int port, 
-	const std::map<std::string, std::string>& headers)
+	const http_header_collections& headers)
 {
 	auto result = std::make_shared<std::string>();
 	std::string& s = *result;
@@ -494,8 +494,8 @@ static std::string GetHttpStatusMessage(int code)
 static std::shared_ptr<std::string> HttpConnectResponseString(
 	int httpStatus,
 	const std::string& httpVersion,
-	const std::map<std::string, std::string>& reqheaders,
-	const std::map<std::string, std::string>& respheaders)
+	const http_header_collections& reqheaders,
+	const http_header_collections& respheaders)
 {
 	auto result = std::make_shared<std::string>();
 	std::string& s = *result;
@@ -553,7 +553,7 @@ static bool GetHeaderLine(std::istream& input, std::string& line)
 	return !line.empty();
 }
 
-static void ParseHttpHeaders(std::istream& input, std::map<std::string, std::string>& headers)
+static void ParseHttpHeaders(std::istream& input, http_header_collections& headers)
 {
 	std::string line;
 	headers.clear();
@@ -784,7 +784,7 @@ WebSocketClientChannel::~WebSocketClientChannel(void)
 
 void WebSocketClientChannel::Connect(
 	const std::wstring& endpoint,
-	const std::map<std::string, std::string>& headers,
+	const http_header_collections& headers,
 	std::function<void(const boost::system::error_code ec)> handler)
 {
 	std::string host;
@@ -1059,9 +1059,9 @@ WebSocketClient::PDTable WebSocketClient::EnumProperties()
 	return results;
 }
 
-std::map<std::string, std::string> WebSocketClient::GetHttpHeader()
+http_header_collections WebSocketClient::GetHttpHeader()
 {
-	std::map<std::string, std::string> headers;
+	http_header_collections headers;
 	for (auto line : m_Headers)
 	{
 		if (line.empty())
